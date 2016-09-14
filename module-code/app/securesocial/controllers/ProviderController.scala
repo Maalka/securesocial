@@ -166,7 +166,7 @@ object ProviderControllerHelper {
   /**
    * The application context
    */
-  val ApplicationContext = "application.context"
+  val ApplicationContext = "play.application.context"
 
   /**
    * The url where the user needs to be redirected after succesful authentication.
