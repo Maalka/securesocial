@@ -174,7 +174,7 @@ object CookieAuthenticator {
   val CookiePathKey = "securesocial.cookie.path"
   val CookieDomainKey = "securesocial.cookie.domain"
   val CookieHttpOnlyKey = "securesocial.cookie.httpOnly"
-  val ApplicationContext = "application.context"
+  val ApplicationContext = "play.application.context"
   val IdleTimeoutKey = "securesocial.cookie.idleTimeoutInMinutes"
   val AbsoluteTimeoutKey = "securesocial.cookie.absoluteTimeoutInMinutes"
   val TransientKey = "securesocial.cookie.makeTransient"
