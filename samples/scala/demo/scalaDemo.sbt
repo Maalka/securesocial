@@ -12,7 +12,7 @@ libraryDependencies ++= Seq(
   specs2 % "test",
   "ws.securesocial" %% "securesocial" % version.value,
   "net.codingwell" %% "scala-guice" % "4.0.0",
-  "com.typesafe.play" %% "play-mailer" % "3.0.1"
+  "com.typesafe.play" %% "play-mailer" % "4.0.0"
 )
 
 resolvers += Resolver.sonatypeRepo("snapshots")
