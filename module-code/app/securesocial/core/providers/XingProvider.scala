@@ -30,7 +30,7 @@ class XingProvider(
   routesService: RoutesService,
   cacheService: CacheService,
   client: OAuth1Client)
-    extends OAuth1Provider(routesService, cacheService, client) {
+  extends OAuth1Provider(routesService, cacheService, client) {
 
   override val id = XingProvider.Xing
 

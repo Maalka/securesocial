@@ -19,7 +19,7 @@ package securesocial.controllers
 import java.util.UUID
 
 import org.joda.time.DateTime
-import play.api.Play
+import play.api.Configuration
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.data.validation.Constraints._
@@ -27,8 +27,6 @@ import play.api.i18n.Messages
 import play.api.mvc.{ RequestHeader, Result }
 import securesocial.core.SecureSocial
 import securesocial.core.providers.MailToken
-import play.api.i18n.Messages.Implicits._
-import play.api.Play.current
 
 import scala.concurrent.Future
 
@@ -41,12 +39,11 @@ abstract class MailTokenBasedOperations extends SecureSocial {
   val Error = "error"
   val Email = "email"
   val TokenDurationKey = "securesocial.userpass.tokenDuration"
-  val DefaultDuration = 60
-  val TokenDuration = Play.current.configuration.getInt(TokenDurationKey).getOrElse(DefaultDuration)
+  val configuration: Configuration = env.configuration
+  val TokenDuration = configuration.get[Int](TokenDurationKey)
 
   val startForm = Form(
-    Email -> email.verifying(nonEmpty)
-  )
+    Email -> email.verifying(nonEmpty))
 
   /**
    * Creates a token for mail based operations
@@ -59,8 +56,7 @@ abstract class MailTokenBasedOperations extends SecureSocial {
     val now = DateTime.now
 
     Future.successful(MailToken(
-      UUID.randomUUID().toString, email.toLowerCase, now, now.plusMinutes(TokenDuration), isSignUp = isSignUp
-    ))
+      UUID.randomUUID().toString, email.toLowerCase, now, now.plusMinutes(TokenDuration), isSignUp = isSignUp))
   }
 
   /**

@@ -20,16 +20,14 @@ import javax.inject.Inject
 
 import play.api.data.Forms._
 import play.api.data._
-import play.api.i18n.Messages
+import play.api.i18n.{ Messages, MessagesApi }
+import play.api.mvc.{ BaseController, ControllerComponents, RequestHeader }
 import play.filters.csrf._
-import play.api.mvc.Action
 import securesocial.core._
 import securesocial.core.authenticator.CookieAuthenticator
 import securesocial.core.providers.UsernamePasswordProvider
 import securesocial.core.providers.utils._
 import securesocial.core.services.SaveMode
-import play.api.i18n.Messages.Implicits._
-import play.api.Play.current
 
 import scala.concurrent.{ Await, Future }
 
@@ -38,14 +36,17 @@ import scala.concurrent.{ Await, Future }
  *
  * @param env the environment
  */
-class Registration @Inject() (override implicit val env: RuntimeEnvironment) extends BaseRegistration
+class Registration @Inject() (
+  override implicit val env: RuntimeEnvironment,
+  val csrfAddToken: CSRFAddToken,
+  val csrfCheck: CSRFCheck,
+  val controllerComponents: ControllerComponents) extends BaseRegistration
 
 /**
  * A trait that provides the means to handle user registration
  *
- * @tparam U the user type
  */
-trait BaseRegistration extends MailTokenBasedOperations {
+trait BaseRegistration extends MailTokenBasedOperations with BaseController {
 
   import securesocial.controllers.BaseRegistration._
 
@@ -57,7 +58,9 @@ trait BaseRegistration extends MailTokenBasedOperations {
   val FirstName = "firstName"
   val LastName = "lastName"
 
-  val formWithUsername = Form[RegistrationInfo](
+  override def messagesApi: MessagesApi = env.messagesApi
+
+  def formWithUsername(implicit request: RequestHeader) = Form[RegistrationInfo](
     mapping(
       UserName -> nonEmptyText.verifying(Messages(UserNameAlreadyTaken), userName => {
         // todo: see if there's a way to avoid waiting here :-\
@@ -69,36 +72,34 @@ trait BaseRegistration extends MailTokenBasedOperations {
       Password ->
         tuple(
           Password1 -> nonEmptyText.verifying(PasswordValidator.constraint),
-          Password2 -> nonEmptyText
-        ).verifying(Messages(PasswordsDoNotMatch), passwords => passwords._1 == passwords._2)
-    ) // binding
-    ((userName, firstName, lastName, password) => RegistrationInfo(Some(userName), firstName, lastName, password._1)) // unbinding
-    (info => Some((info.userName.getOrElse(""), info.firstName, info.lastName, ("", ""))))
-  )
+          Password2 -> nonEmptyText).verifying(Messages(PasswordsDoNotMatch), passwords => passwords._1 == passwords._2)) // binding
+          ((userName, firstName, lastName, password) => RegistrationInfo(Some(userName), firstName, lastName, password._1)) // unbinding
+          (info => Some((info.userName.getOrElse(""), info.firstName, info.lastName, ("", "")))))
 
-  val formWithoutUsername = Form[RegistrationInfo](
+  def formWithoutUsername(implicit request: RequestHeader) = Form[RegistrationInfo](
     mapping(
       FirstName -> nonEmptyText,
       LastName -> nonEmptyText,
       Password ->
         tuple(
           Password1 -> nonEmptyText.verifying(PasswordValidator.constraint),
-          Password2 -> nonEmptyText
-        ).verifying(Messages(PasswordsDoNotMatch), passwords => passwords._1 == passwords._2)
-    ) // binding
-    ((firstName, lastName, password) => RegistrationInfo(None, firstName, lastName, password._1)) // unbinding
-    (info => Some((info.firstName, info.lastName, ("", ""))))
-  )
+          Password2 -> nonEmptyText).verifying(Messages(PasswordsDoNotMatch), passwords => passwords._1 == passwords._2)) // binding
+          ((firstName, lastName, password) => RegistrationInfo(None, firstName, lastName, password._1)) // unbinding
+          (info => Some((info.firstName, info.lastName, ("", "")))))
 
-  val form = if (UsernamePasswordProvider.withUserNameSupport) formWithUsername else formWithoutUsername
+  def form(implicit request: RequestHeader) =
+    if (env.usernamePasswordConfig.withUserNameSupport) formWithUsername else formWithoutUsername
+
+  val csrfAddToken: CSRFAddToken
+  val csrfCheck: CSRFCheck
 
   /**
    * Starts the sign up process
    */
-  def startSignUp = CSRFAddToken {
+  def startSignUp = csrfAddToken {
     Action {
       implicit request =>
-        if (SecureSocial.enableRefererAsOriginalUrl) {
+        if (env.enableRefererAsOriginalUrl.value) {
           SecureSocial.withRefererAsOriginalUrl(Ok(env.viewTemplates.getStartSignUpPage(startForm)))
         } else {
           Ok(env.viewTemplates.getStartSignUpPage(startForm))
@@ -106,7 +107,7 @@ trait BaseRegistration extends MailTokenBasedOperations {
     }
   }
 
-  def handleStartSignUp = CSRFCheck {
+  def handleStartSignUp = csrfCheck {
     Action.async {
       implicit request =>
         startForm.bindFromRequest.fold(
@@ -130,8 +131,7 @@ trait BaseRegistration extends MailTokenBasedOperations {
                 }
                 handleStartResult().flashing(Success -> Messages(ThankYouCheckEmail), Email -> email)
             }
-          }
-        )
+          })
     }
   }
 
@@ -139,7 +139,7 @@ trait BaseRegistration extends MailTokenBasedOperations {
    * Renders the sign up page
    * @return
    */
-  def signUp(token: String) = CSRFAddToken {
+  def signUp(token: String) = csrfAddToken {
     Action.async {
       implicit request =>
         logger.debug("[securesocial] trying sign up with token %s".format(token))
@@ -153,7 +153,7 @@ trait BaseRegistration extends MailTokenBasedOperations {
   /**
    * Handles posts from the sign up page
    */
-  def handleSignUp(token: String) = CSRFCheck {
+  def handleSignUp(token: String) = csrfCheck {
     Action.async {
       implicit request =>
         executeForToken(token, true, {
@@ -164,7 +164,7 @@ trait BaseRegistration extends MailTokenBasedOperations {
                 Future.successful(BadRequest(env.viewTemplates.getSignUpPage(errors, t.uuid)))
               },
               info => {
-                val id = if (UsernamePasswordProvider.withUserNameSupport) info.userName.get else t.email
+                val id = if (env.usernamePasswordConfig.withUserNameSupport) info.userName.get else t.email
                 val newUser = BasicProfile(
                   providerId,
                   id,
@@ -174,8 +174,7 @@ trait BaseRegistration extends MailTokenBasedOperations {
                   Some(t.email),
                   None,
                   AuthenticationMethod.UserPassword,
-                  passwordInfo = Some(env.currentHasher.hash(info.password))
-                )
+                  passwordInfo = Some(env.currentHasher.hash(info.password)))
 
                 val withAvatar = env.avatarService.map {
                   _.urlFor(t.email).map { url =>
@@ -189,10 +188,10 @@ trait BaseRegistration extends MailTokenBasedOperations {
                   saved <- env.userService.save(toSave, SaveMode.SignUp);
                   deleted <- env.userService.deleteToken(t.uuid)
                 ) yield {
-                  if (UsernamePasswordProvider.sendWelcomeEmail)
+                  if (env.usernamePasswordConfig.sendWelcomeEmail)
                     env.mailer.sendWelcomeEmail(newUser)
                   val eventSession = Events.fire(new SignUpEvent(saved)).getOrElse(request.session)
-                  if (UsernamePasswordProvider.signupSkipLogin) {
+                  if (env.usernamePasswordConfig.signupSkipLogin) {
                     env.authenticatorService.find(CookieAuthenticator.Id).map {
                       _.fromUser(saved).flatMap { authenticator =>
                         confirmationResult()

@@ -17,19 +17,41 @@ package service
  *
  */
 
-import com.google.inject.{ Inject, Singleton }
-import controllers.CustomRoutesService
-import securesocial.core.{ BasicProfile, RuntimeEnvironment }
+import javax.inject.{ Inject, Singleton }
 
-class MyEnvironment extends RuntimeEnvironment.Default {
+import akka.actor.ActorSystem
+import controllers.CustomRoutesService
+import play.api.cache.AsyncCacheApi
+import play.api.{ Configuration, Environment }
+import play.api.i18n.MessagesApi
+import play.api.libs.mailer.MailerClient
+import play.api.libs.ws.WSClient
+import play.api.mvc.PlayBodyParsers
+import securesocial.core.{ IdentityProvider, RuntimeEnvironment }
+
+import scala.collection.immutable.ListMap
+import scala.concurrent.ExecutionContext
+
+@Singleton
+class MyEnvironment @Inject() (
+  override val configuration: Configuration,
+  override implicit val messagesApi: MessagesApi,
+  override val environment: Environment,
+  override val wsClient: WSClient,
+  override val cacheApi: AsyncCacheApi,
+  override val mailerClient: MailerClient,
+  override val executionContext: ExecutionContext,
+  override val parsers: PlayBodyParsers,
+  override val actorSystem: ActorSystem,
+  customProviders: CustomProviders) extends RuntimeEnvironment.Default {
   override type U = DemoUser
-  override implicit val executionContext = play.api.libs.concurrent.Execution.defaultContext
-  override lazy val routes = new CustomRoutesService()
+  override lazy val routes = new CustomRoutesService(environment, configuration)
   override lazy val userService: InMemoryUserService = new InMemoryUserService()
-  override lazy val eventListeners = List(new MyEventListener())
+  override lazy val eventListeners = List(new MyEventListener)
+  override lazy val providers: ListMap[String, IdentityProvider] =
+    ListMap(customProviders.list.map(include): _*) ++ builtInProviders
 }
 
-/*
-class MyBasicEnvironment @Inject() (val env: MyEnvironment[U]) extends RuntimeEnvironment.Default[U] {
-  override lazy val userService: InMemoryUserService = env.userService
-}*/
+case class CustomProviders(list: Seq[IdentityProvider]) {
+  @Inject def this() = this(Seq.empty)
+}

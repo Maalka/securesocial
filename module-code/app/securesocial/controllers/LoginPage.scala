@@ -18,20 +18,24 @@ package securesocial.controllers
 
 import javax.inject.Inject
 
+import play.api.mvc.ControllerComponents
 import securesocial.core._
 import securesocial.core.utils._
-import play.api.Play
-import Play.current
+import play.api.{ Configuration, Play }
 import providers.UsernamePasswordProvider
-import scala.concurrent.{ ExecutionContext, Future }
-import play.filters.csrf._
+
+import scala.concurrent.Future
+import play.filters.csrf.CSRFAddToken
 
 /**
  * A default Login controller that uses BasicProfile as the user type.
  *
  * @param env An environment
  */
-class LoginPage @Inject() (override implicit val env: RuntimeEnvironment) extends BaseLoginPage
+class LoginPage @Inject() (
+  override implicit val env: RuntimeEnvironment,
+  val csrfAddToken: CSRFAddToken,
+  val controllerComponents: ControllerComponents) extends BaseLoginPage
 
 /**
  * The trait that defines the login page controller
@@ -44,25 +48,28 @@ trait BaseLoginPage extends SecureSocial {
    */
   val onLogoutGoTo = "securesocial.onLogoutGoTo"
 
+  val csrfAddToken: CSRFAddToken
+  val configuration: Configuration = env.configuration
+
   /**
    * Renders the login page
    * @return
    */
-  def login = CSRFAddToken {
+  def login = csrfAddToken {
     UserAwareAction { implicit request =>
       if (request.user.isDefined) {
         // if the user is already logged in, a referer is set and we handle the
         // referer the same way as an OriginalUrl in the session, we redirect back
         // to this URL. Otherwise, just redirect to the application's landing page
-        val to = (if (SecureSocial.enableRefererAsOriginalUrl) {
+        val to = (if (env.enableRefererAsOriginalUrl.value) {
           SecureSocial.refererPathAndQuery
         } else {
           None
-        }).getOrElse(ProviderControllerHelper.landingUrl)
+        }).getOrElse(ProviderControllerHelper.landingUrl(configuration))
         logger.debug("User already logged in, skipping login page. Redirecting to %s".format(to))
         Redirect(to)
       } else {
-        if (SecureSocial.enableRefererAsOriginalUrl) {
+        if (env.enableRefererAsOriginalUrl.value) {
           SecureSocial.withRefererAsOriginalUrl(Ok(env.viewTemplates.getLoginPage(UsernamePasswordProvider.loginForm)))
         } else {
           Ok(env.viewTemplates.getLoginPage(UsernamePasswordProvider.loginForm))
@@ -79,13 +86,13 @@ trait BaseLoginPage extends SecureSocial {
    */
   def logout = UserAwareAction.async {
     implicit request =>
-      val redirectTo = Redirect(Play.configuration.getString(onLogoutGoTo).getOrElse(env.routes.loginPageUrl))
+      val redirectTo = Redirect(configuration.get[Option[String]](onLogoutGoTo).getOrElse(env.routes.loginPageUrl))
       val result = for {
         user <- request.user
         authenticator <- request.authenticator
       } yield {
         redirectTo.discardingAuthenticator(authenticator).map {
-          _.withSession(Events.fire(new LogoutEvent(user)).getOrElse(request.session))
+          _.withSession(Events.fire(LogoutEvent(user)).getOrElse(request.session))
         }
       }
       result.getOrElse {

@@ -16,20 +16,21 @@
  */
 package securesocial.core.providers
 
-import play.api.libs.ws.{ WS, WSResponse }
+import play.api.libs.ws.WSResponse
 import securesocial.core._
 import securesocial.core.services.{ CacheService, RoutesService }
 
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.Future
 
 /**
  * A Weibo provider
  *
  */
-class WeiboProvider(routesService: RoutesService,
+class WeiboProvider(
+  routesService: RoutesService,
   cacheService: CacheService,
   client: OAuth2Client)
-    extends OAuth2Provider(routesService, client, cacheService) {
+  extends OAuth2Provider(routesService, client, cacheService) {
   val GetAuthenticatedUser = "https://api.weibo.com/2/users/show.json?uid=%s&access_token=%s"
   val AccessToken = "access_token"
   val Message = "error"
@@ -57,8 +58,7 @@ class WeiboProvider(routesService: RoutesService,
       (json \ OAuth2Constants.AccessToken).as[String],
       (json \ UId).asOpt[String],
       (json \ OAuth2Constants.ExpiresIn).asOpt[Int],
-      (json \ OAuth2Constants.RefreshToken).asOpt[String]
-    )
+      (json \ OAuth2Constants.RefreshToken).asOpt[String])
   }
 
   /**
@@ -69,8 +69,6 @@ class WeiboProvider(routesService: RoutesService,
    * @return A copy of the user object with the new values set
    */
   def fillProfile(info: OAuth2Info): Future[BasicProfile] = {
-    val accessToken = info.accessToken
-
     val weiboUserId = info.tokenType.getOrElse {
       logger.error("[securesocial] Can't found weiboUserId")
       throw new AuthenticationException()
@@ -97,8 +95,7 @@ class WeiboProvider(routesService: RoutesService,
   }
 
   def getEmail(accessToken: String): Future[Option[String]] = {
-    import play.api.Play.current
-    WS.url(GetUserEmail.format(accessToken)).get().map { response =>
+    client.httpService.url(GetUserEmail.format(accessToken)).get().map { response =>
       val me = response.json
       (me \ Message).asOpt[String] match {
         case Some(msg) =>

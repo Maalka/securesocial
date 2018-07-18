@@ -16,20 +16,21 @@
  */
 package securesocial.core.providers
 
-import play.api.libs.ws.WSResponse
 import securesocial.core._
+import securesocial.core.providers.SpotifyProvider._
 import securesocial.core.services.{ CacheService, RoutesService }
+
 import scala.concurrent.Future
-import SpotifyProvider._
 
 /**
  * A Spotify provider
  *
  */
-class SpotifyProvider(routesService: RoutesService,
+class SpotifyProvider(
+  routesService: RoutesService,
   cacheService: CacheService,
   client: OAuth2Client)
-    extends OAuth2Provider(routesService, client, cacheService) {
+  extends OAuth2Provider(routesService, client, cacheService) {
   override val id = SpotifyProvider.Spotify
 
   def fillProfile(info: OAuth2Info): Future[BasicProfile] = {

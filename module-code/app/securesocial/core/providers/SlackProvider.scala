@@ -18,22 +18,22 @@
  */
 package securesocial.core.providers
 
+import play.api.libs.json.{ Json, Reads }
 import play.api.libs.ws.WSResponse
-import play.api.libs.json.{ Reads, Json, JsValue }
 import securesocial.core._
+import securesocial.core.providers.SlackProvider.{ AuthTestResponse, CommonResponse }
 import securesocial.core.services.{ CacheService, RoutesService }
 
 import scala.concurrent.Future
 
-import SlackProvider.{ CommonResponse, AuthTestResponse }
-
 /**
  * A Slack provider
  */
-class SlackProvider(routesService: RoutesService,
+class SlackProvider(
+  routesService: RoutesService,
   cacheService: CacheService,
   client: OAuth2Client)
-    extends OAuth2Provider(routesService, client, cacheService) {
+  extends OAuth2Provider(routesService, client, cacheService) {
   val GetAuthenticatedUser = "https://slack.com/api/auth.test?token=%s"
   val AccessToken = "token"
 
