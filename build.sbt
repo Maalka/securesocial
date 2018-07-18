@@ -3,6 +3,7 @@ name := "SecureSocial-parent"
 version := Common.version
 
 scalaVersion := Common.scalaVersion
+
 crossScalaVersions := Common.crossScalaVersions
 
 lazy val core =  project.in( file("module-code") ).enablePlugins(PlayScala)
@@ -14,3 +15,4 @@ lazy val javaDemo = project.in( file("samples/java/demo") ).enablePlugins(PlayJa
 lazy val root = project.in( file(".") ).aggregate(core, scalaDemo, javaDemo) .settings(
      aggregate in update := false
    )
+
