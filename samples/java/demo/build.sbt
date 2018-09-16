@@ -1,10 +1,8 @@
 import PlayKeys._
 
+import Common.settings
+
 name    := "java-demo"
-
-version := Common.version
-
-scalaVersion := Common.scalaVersion
 
 libraryDependencies ++= Seq("ws.securesocial" %% "securesocial" % version.value, javaCore, guice)
 

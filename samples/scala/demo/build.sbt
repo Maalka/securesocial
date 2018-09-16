@@ -1,10 +1,8 @@
 import PlayKeys._
 
+import Common.settings
+
 name    := "scala-demo"
-
-version := Common.version
-
-scalaVersion := Common.scalaVersion
 
 libraryDependencies ++= Seq(
   specs2 % "test",

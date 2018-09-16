@@ -1,11 +1,7 @@
 import play.sbt.PlayImport.PlayKeys._
+import Common.settings
 
 name := "SecureSocial"
-
-version := Common.version
-
-scalaVersion := Common.scalaVersion
-crossScalaVersions := Common.crossScalaVersions
 
 libraryDependencies ++= Seq(
   ws,
@@ -27,15 +23,9 @@ organizationName := "SecureSocial"
 
 organizationHomepage := Some(new URL("http://www.securesocial.ws"))
 
-publishMavenStyle := true
-
 publishArtifact in Test := false
 
 pomIncludeRepository := { _ => false }
-
-publishTo := Some("Artifactory Realm" at "https://jfrog.maalka.com/artifactory/libs-snapshot-local")
-
-credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
 
 startYear := Some(2012)
 
